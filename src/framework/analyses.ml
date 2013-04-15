@@ -40,6 +40,7 @@ type local_state = [
     | `Flag        of ConcDomain.Trivial.t
     | `Need        of unit
     | `MayLocks    of LockDomain.MayLockset.t
+    | `SLP         of LockDomain.SLPset.t
     | `ThreadLocSet of ConcDomain.ThreadStringSet.t
     | `Oslo         of LockDomain.Lockset.t
     | `Unit

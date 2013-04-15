@@ -131,6 +131,21 @@ struct
   let toXML s  = toXML_f short s
 end
 
+(* Copy of MayLockset, because we need to change the string for pretty printing *)
+module SLPset = 
+struct
+  include MayLockset
+  
+  let toXML_f sf x = 
+    match toXML x with
+      | Xml.Element (node, [text, _], elems) -> 
+          let summary = "SLP for: " ^ sf Goblintutil.summary_length x in
+            Xml.Element (node, [text, summary], elems)
+      | x -> x
+  (* The next line is essential, otherwise you just get the include'd output again *)
+  let toXML s  = toXML_f short s
+end
+
 module Symbolic = 
 struct
   module S = SetDomain.ToppedSet (Exp) (struct let topname = "All mutexes" end)
