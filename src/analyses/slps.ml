@@ -13,14 +13,7 @@ struct
   module Glob = Glob.Make (Lattice.Unit)
   
   (* BEGIN directly hoisted from MayLocks *)
-  (* transfer functions : usual operation just propagates the value *)
-  let assign ctx (lval:lval) (rval:exp) : Dom.t = ctx.local
-  let branch ctx (exp:exp) (tv:bool) : Dom.t = ctx.local
-  let body ctx (f:fundec) : Dom.t = ctx.local
-  let return ctx (exp:exp option) (f:fundec) : Dom.t = ctx.local
-  let enter_func ctx (lval: lval option) (f:varinfo) (args:exp list) : (Dom.t * Dom.t) list = [ctx.local,ctx.local]
-  let leave_func ctx (lval:lval option) fexp (f:varinfo) (args:exp list) (au:Dom.t) : Dom.t = au
-    
+   
   (* Helper function to convert query-offsets to valuedomain-offsets *)
   let rec conv_offset x =
     match x with
@@ -55,6 +48,14 @@ struct
   let exitstate  () = Dom.top ()
 
   (* END *)
+
+  (* transfer functions : Don't propagate anything *)
+  let assign ctx (lval:lval) (rval:exp) : Dom.t = Dom.empty ()
+  let branch ctx (exp:exp) (tv:bool) : Dom.t = ctx.local  (* BUG ?! *)
+  let body ctx (f:fundec) : Dom.t = Dom.empty ()
+  let return ctx (exp:exp option) (f:fundec) : Dom.t = Dom.empty ()
+  let enter_func ctx (lval: lval option) (f:varinfo) (args:exp list) : (Dom.t * Dom.t) list = [Dom.empty (), Dom.empty ()]
+  let leave_func ctx (lval:lval option) fexp (f:varinfo) (args:exp list) (au:Dom.t) : Dom.t = Dom.empty ()
 
   (* transfer function to handle library functions --- for us locking & unlocking *)
   let special_fn ctx (lval: lval option) (f:varinfo) (arglist:exp list) : (Dom.t * Cil.exp * bool) list =
