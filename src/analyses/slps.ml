@@ -50,7 +50,7 @@ struct
 
   (* transfer functions : Don't propagate anything *)
   let assign ctx (lval:lval) (rval:exp) : Dom.t = Dom.empty ()
-  let branch ctx (exp:exp) (tv:bool) : Dom.t = ctx.local  (* BUG ?! *)
+  let branch ctx (exp:exp) (tv:bool) : Dom.t = Dom.empty ()
   let body ctx (f:fundec) : Dom.t = Dom.empty ()
   let return ctx (exp:exp option) (f:fundec) : Dom.t = Dom.empty ()
   let enter_func ctx (lval: lval option) (f:varinfo) (args:exp list) : (Dom.t * Dom.t) list = [Dom.empty (), Dom.empty ()]
