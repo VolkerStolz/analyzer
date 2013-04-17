@@ -26,10 +26,9 @@ struct
   let eval_exp_addr a exp =
     let gather_addr (v,o) b = ValueDomain.Addr.from_var_offset (v,conv_offset o) :: b in
     match a (Queries.MayPointTo exp) with
-      | `LvalSet a when not (Queries.LS.is_top a)
-                     && not (Queries.LS.mem (dummyFunDec.svar,`NoOffset) a) -> 
-          Queries.LS.fold gather_addr (Queries.LS.remove (dummyFunDec.svar, `NoOffset) a) []    
-      | _ -> []
+      | `LvalSet a when not (Queries.LS.is_top a) ->
+          Queries.LS.fold gather_addr (Queries.LS.remove (dummyFunDec.svar, `NoOffset) a) []
+      | b -> Messages.warn ("Could not evaluate '"^sprint 30 (d_exp () exp)^"' to an points-to set, instead got '"^Queries.Result.short 60 b^"'."); []
  
   let lock rw may_fail a lv arglist ls : (Dom.ReverseAddrSet.t * Cil.exp * bool) list =
     let set_ret tv sts = 
