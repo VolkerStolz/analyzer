@@ -7,6 +7,8 @@ module Spec =
 struct
   include Analyses.DefaultSpec
 
+  let violations = ref false (*print negative warnings? *)
+
   let name = "OSEK trasactionality"
   module Dom  = Lattice.Prod (Osektupel) (Osektupel) (* Summmary x Result *)
   module Glob = Glob.Make (Lattice.Unit)
@@ -34,9 +36,13 @@ struct
     if Mutex.Lockset.is_top dom_elem then -1 else 
       List.fold_left max 0 (List.map (fun x -> (pry (Osek.Spec.names x)))  (Mutex.Lockset.ReverseAddrSet.elements dom_elem))
   
-  let pry_d' dom_elem r = 
+  let pry_d' dom_elem lock = 
     if Mutex.Lockset.is_top dom_elem then -1 else 
-      List.fold_left max 0 (List.map (fun x -> ((fun y -> if y == r.vname then -1 else pry y) (Osek.Spec.names x)))  (Mutex.Lockset.ReverseAddrSet.elements dom_elem))
+      let lock_name = match lock with
+	| AddrOf (Var varinfo,NoOffset) -> varinfo.vname
+	| _ -> failwith "This never happens! osektransactionality.ml:43"
+      in
+      List.fold_left max 0 (List.map (fun x -> ((fun y -> if y == lock_name then -1 else pry y) (Osek.Spec.names x)))  (Mutex.Lockset.ReverseAddrSet.elements dom_elem))
     
   (* transfer functions *)
   let assign ctx (lval:lval) (rval:exp) : Dom.t = 
@@ -47,7 +53,7 @@ struct
     let b2 = access_one_top ctx.ask false rval in
     let stack = get_stack ctx in
     let addvars var fn = let (vars,t) = Hashtbl.find funs fn.vname in
-      let _ = Hashtbl.replace funs fn.vname (StringSet.add var vars , t) in
+      let _ = Hashtbl.replace funs fn.vname (StringSet.add var vars , Osektupel.join t ctxr) in
 (* let _ = print_endline("Adding " ^ var ^ " to accessset of" ^ fn.vname) in *)
 	fn
     in
@@ -102,7 +108,8 @@ struct
     let fvname = get_api_names f.vname in
     match fvname with 
       | "ReleaseResource" -> (match arglist with 
-          | [Const (CInt64 (c,_,_) ) ] -> let r = makeGlobalVar (find_name (Int64.to_string c)) Cil.voidType in
+	  | [Lval (Var info,_)] -> let r = get_lock info.vname in
+(*           | [Const (CInt64 (c,_,_) ) ] -> let r = makeGlobalVar (find_name (Int64.to_string c)) Cil.voidType in *)
 (* (Hashtbl.find Osek.Spec.constantlocks (Int64.to_string c)) in  *)
                                             let p = (pry_d' (get_lockset ctx) r) in  
                                                [(ctxs, Osektupel.fcon  ctxr (Osektupel.Bot,Osektupel.Bot,Osektupel.Bot,Osektupel.Val p)) ,Cil.integer 1, true]
@@ -149,9 +156,11 @@ struct
 		  if ( (fname = "__goblint_dummy_init") || (fname = "goblin_initfun") ) then () else
 		    if (pryd == (-1)) then print_endline ("Function " ^ fname ^ " contains (at most) one variable access.") else
 		      print_endline ("Function " ^ fname ^ " is transactional with a defensive overall priority of " ^ (string_of_int pryd) ^ " .")
-        | _  -> print_endline ("Transactionality violation in function " ^ fname ^ ":");
-                (printlist warn);
-                print_endline ("versus a defensive overall priority of " ^ (string_of_int pryd) ^ " .");         
+        | _  -> if !violations then begin 
+		  print_endline ("Transactionality violation in function " ^ fname ^ ":");
+		  (printlist warn);
+		  print_endline ("versus a defensive overall priority of " ^ (string_of_int pryd) ^ " .")
+		end else ()     
       in
       let warnings = StringSet.fold (helper pryd) vars [] in 
       printwarnings warnings

@@ -38,11 +38,11 @@ type local_state = [
     | `Stack2       of StackDomain.Dom2.t
     | `Stack3       of StackDomain.Dom3.t
     | `Flag        of ConcDomain.Trivial.t
-    | `Need        of unit
     | `MayLocks    of LockDomain.MayLockset.t
     | `SLP         of LockDomain.SLPset.t
     | `ThreadLocSet of ConcDomain.ThreadStringSet.t
     | `Oslo         of LockDomain.Lockset.t
+    | `FlagModeDom  of FlagModeDomain.Dom.t
     | `Unit
     ]
 
