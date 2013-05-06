@@ -261,7 +261,9 @@ struct
           Queries.LS.fold gather_addr (Queries.LS.remove (dummyFunDec.svar, `NoOffset) a) []    
       | _ -> []
   
-  let lock rw may_fail a lv arglist ls =
+  let lock rw may_fail ctx lv arglist =
+    let ls = ctx.local in
+    let a = ctx.ask in
     let is_a_blob addr = 
       match LockDomain.Addr.to_var addr with
         | [a] -> a.vname.[0] = '(' 
@@ -281,12 +283,33 @@ struct
         if may_fail then set_ret true ls else []
       end
     in
+      let slps : LockDomain.SLPset.t = match ctx.presub with
+        | [`SLP l] -> l
+        | _ -> failwith "DLraces unavailable --- dependency on SLP missing!"
+    in
+      if LockDomain.SLPset.is_empty slps then
+	(* Original behaviour *)
       match arglist with
         | [x] -> begin match  (eval_exp_addr a x) with 
                           | [e]  -> lock_one e
                           | _ -> nothing ls 
                   end
         | _ -> nothing (Lockset.top ())
+      else
+       (* Must combine logic here somewhere. I'm assuming the [e] above means "must-lock". If
+        there's more than one, then it's confused and obviously not "must". So here we need to replicate distinct cases:
+          - single must-lock, combine WITHOUT SLP, and OPTION WITH SLP
+          - multiple may-lock, record iff SLP
+       *)
+	let slp_one f (l : ValueDomain.Addr.t) =
+		  if (LockDomain.SLPset.mem (l,true (* XXX What does this RW mean/relevance? *)) slps) then failwith "foo" (* combine with 'f e' *)
+                  else f l in (* must vs may-case below *)
+       match arglist with
+       | [x] -> match (eval_exp_addr a x) with
+                          | [] -> nothing ls 
+                          | [e]  -> slp_one lock_one e
+                          | es -> List.concat (List.map (slp_one (fun _ -> nothing ls)) es)
+       | _ -> failwith "taking 0 or >1 locks?!"
 
   (* [per_elementize oa op locks] takes offset of current access [oa],
      quantified access offset [op] and lockset and returns a quantified 
@@ -698,7 +721,7 @@ struct
       | _, "_unlock_kernel"
           -> [(Lockset.remove (big_kernel_lock,true) ctx.local),Cil.integer 1, true]
       | `Lock (failing, rw), _
-          -> lock rw failing ctx.ask lv arglist ctx.local
+          -> lock rw failing ctx lv arglist
       | `Unlock, "__raw_read_unlock" 
       | `Unlock, "__raw_write_unlock"  -> 
           let drop_raw_lock x =

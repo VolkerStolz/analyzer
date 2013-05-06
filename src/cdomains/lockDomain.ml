@@ -53,6 +53,7 @@ struct
   module AddrSet = Lattice.Reverse (ReverseAddrSet)
 
   include AddrSet
+  let mem = ReverseAddrSet.mem
   
   let toXML_f sf x = 
     match toXML x with
